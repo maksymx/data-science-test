@@ -27,6 +27,6 @@ Your task is to build a predictive model of emoji in given a piece of text. Our 
 2. How you chose the vectorization method and algorithms.
 3. What the experiments may be useful for and how we may improve the utility of it. 
 
-Please let Keisuke (keisuke@emogi.com), if you have any questions or feedback. 
+Please let Keisuke (keisuke@emogi.com) know any question or feedback. 
 Have fun! 
 
