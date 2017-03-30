@@ -17,11 +17,11 @@ Our suggestion is to spend a couple of hours to complete the task and let your i
 
 Included in this repository are two files: 
 
-1) tweets.txt, where each line includes a text in a tweet that included emoji (but the emoji has been removed);
+1) tweets.txt, where each line includes the text of a tweet that included emoji (but the emoji has been removed);
 
 2) emoji.txt, where each line includes the name of emoji for the corresponding text in tweets.txt. 
 
-Your task is to build a predictive model of emoji in given a piece of text. Our suggestion is to use a standard vectorization method and machine learning classifier (of your choice). Once done, please submit your script to conduct the experiement and report the following:
+Your task is to build a predictive model of emoji in given a piece of text. Our suggestion is to use standard vectorization methods and machine learning classifiers (of your choice). Once done, please submit your script to conduct the experiement and report the following:
 
 1. Your findings from the experiments, including limitation and assumption.
 2. How you chose the vectorization method and algorithms.
