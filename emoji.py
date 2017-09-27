@@ -1,15 +1,17 @@
 import string
 from collections import defaultdict
 
+import numpy as np
 import pandas as pd
 from sklearn.base import TransformerMixin
 from sklearn.feature_extraction.stop_words import ENGLISH_STOP_WORDS as stopwords
 from sklearn.model_selection import train_test_split
-from spacy.en import English
+# from spacy.en import English
+# from gensim.models import Word2Vec
 
 # from sklearn.ensemble import RandomForestClassifier
 # from sklearn.externals import joblib
-from sklearn.feature_extraction.text import CountVectorizer
+# from sklearn.feature_extraction.text import CountVectorizer
 # from sklearn.metrics import accuracy_score
 # from sklearn.pipeline import Pipeline
 # from sklearn.svm import SVC, LinearSVC
@@ -19,19 +21,22 @@ from keras.models import Sequential
 from keras.layers import Dense, Dropout, Activation
 from keras.layers import Embedding
 from keras.layers import Conv1D, GlobalMaxPooling1D
+from keras.preprocessing.sequence import pad_sequences
+from keras.preprocessing.text import Tokenizer
 
-parser = English()
+# parser = English()
 punctuations = string.punctuation
 
 # set parameters:
 max_features = 5000
-maxlen = 400
-batch_size = 32
+# maxlen = 150
+batch_size = 128
 embedding_dims = 50
 filters = 250
 kernel_size = 3
 hidden_dims = 250
 epochs = 2
+MAX_NB_WORDS = 20000
 
 
 def prepare_labels():
@@ -45,6 +50,7 @@ def transform_labels(emoji):
     for i, name in ((0, 'heart_eyes'), (1, 'yum'), (2, 'sob'), (3, 'blush'), (4, 'weary'),
                     (5, 'smirk'), (6, 'grin'), (7, 'flushed'), (8, 'relaxed'), (9, 'wink')):
         emoji['icons'].replace(name, i, inplace=True)
+    emoji.reindex()
     return emoji
 
 
@@ -68,11 +74,12 @@ def my_tokenizer(sentence):
 
 # Create spacy tokenizer that parses a sentence and generates tokens
 # these can also be replaced by word vectors
-def spacy_tokenizer(sentence):
-    tokens = parser(sentence)
-    tokens = [tok.lemma_.lower().strip() if tok.lemma_ != "-PRON-" else tok.lower_ for tok in tokens]
-    tokens = [tok for tok in tokens if (tok not in stopwords and tok not in punctuations)]
-    return tokens
+
+# def spacy_tokenizer(sentence):
+#     tokens = parser(sentence)
+#     tokens = [tok.lemma_.lower().strip() if tok.lemma_ != "-PRON-" else tok.lower_ for tok in tokens]
+#     tokens = [tok for tok in tokens if (tok not in stopwords and tok not in punctuations)]
+#     return tokens
 
 
 # Basic utility function to clean the text
@@ -98,32 +105,23 @@ emoji = transform_labels(emoji)
 
 tweets = prepare_features()
 
-inputs_train, inputs_test, expected_output_train, expected_output_test = train_test_split(tweets, emoji)  # matched OK
+tokenizer = Tokenizer(num_words=MAX_NB_WORDS)
+tokenizer.fit_on_texts(tweets)
+sequences = tokenizer.texts_to_sequences(tweets)
 
-vectorizer = CountVectorizer(tokenizer=spacy_tokenizer, ngram_range=(1, 3))
+word_index = tokenizer.word_index
+print('Found %s unique tokens.' % len(word_index))
 
-# classifier = LinearSVC()
-# classifier2 = SVC()
-# classifier3 = RandomForestClassifier()
-#
-# pipe = Pipeline([('cleaner', predictors()),
-#                  ('vectorizer', vectorizer),
-#                  ('classifier', classifier)])
-#
-# # Create model and measure accuracy
-# pipe.fit(inputs_train, expected_output_train)
-#
-# # now we can save it to a file
-# joblib.dump(pipe, 'model.pkl')
-#
-# pred_data = pipe.predict(inputs_test)
-#
-# for (sample, pred) in zip(inputs_test, pred_data):
-#     print(sample, ">>>>>", pred)
-#
-# print("Accuracy:", accuracy_score(expected_output_test, pred_data))
-#######################
-vectors = vectorizer.fit_transform(inputs_train, expected_output_train)
+sequences_array = np.array(list(map(lambda x: np.array(x), sequences)))
+
+max_len = max(len(a) for a in sequences_array)
+
+maxlen = 50
+
+data = pad_sequences(sequences, maxlen=maxlen)
+
+inputs_train, inputs_test, expected_output_train, expected_output_test = train_test_split(data, emoji)  # matched OK
+
 model = Sequential()
 
 # we start off with an efficient embedding layer which maps
@@ -155,9 +153,33 @@ model.add(Activation('sigmoid'))
 model.compile(loss='binary_crossentropy',
               optimizer='adam',
               metrics=['accuracy'])
-# model.fit(x_train, y_train,
-#           batch_size=batch_size,
-#           epochs=epochs,
-#           validation_data=(x_test, y_test))
+
+model.fit(inputs_train, expected_output_train,
+          batch_size=batch_size,
+          epochs=epochs,
+          validation_data=(inputs_test, expected_output_test))
 ##########################
+
+# vectorizer = CountVectorizer(tokenizer=spacy_tokenizer, ngram_range=(1, 3))
+
+# classifier = LinearSVC()
+# classifier2 = SVC()
+# classifier3 = RandomForestClassifier()
+#
+# pipe = Pipeline([('cleaner', predictors()),
+#                  ('vectorizer', vectorizer),
+#                  ('classifier', classifier)])
+#
+# # Create model and measure accuracy
+# pipe.fit(inputs_train, expected_output_train)
+#
+# # now we can save it to a file
+# joblib.dump(pipe, 'model.pkl')
+#
+# pred_data = pipe.predict(inputs_test)
+#
+# for (sample, pred) in zip(inputs_test, pred_data):
+#     print(sample, ">>>>>", pred)
+#
+# print("Accuracy:", accuracy_score(expected_output_test, pred_data))
 
