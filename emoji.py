@@ -120,7 +120,7 @@ maxlen = 50
 
 data = pad_sequences(sequences, maxlen=maxlen)
 
-inputs_train, inputs_test, expected_output_train, expected_output_test = train_test_split(data, emoji)  # matched OK
+inputs_train, inputs_test, expected_output_train, expected_output_test = train_test_split(data, emoji.as_matrix())  # matched OK
 
 model = Sequential()
 
