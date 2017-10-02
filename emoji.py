@@ -1,35 +1,20 @@
 import string
-from collections import defaultdict
 
 import numpy as np
 import pandas as pd
-from sklearn.base import TransformerMixin
-from sklearn.feature_extraction.stop_words import ENGLISH_STOP_WORDS as stopwords
-from sklearn.model_selection import train_test_split
-# from spacy.en import English
-# from gensim.models import Word2Vec
-
-# from sklearn.ensemble import RandomForestClassifier
-# from sklearn.externals import joblib
-# from sklearn.feature_extraction.text import CountVectorizer
-# from sklearn.metrics import accuracy_score
-# from sklearn.pipeline import Pipeline
-# from sklearn.svm import SVC, LinearSVC
-
-from keras.preprocessing import sequence
-from keras.models import Sequential
+from keras.layers import Conv1D, GlobalMaxPooling1D
 from keras.layers import Dense, Dropout, Activation
 from keras.layers import Embedding
-from keras.layers import Conv1D, GlobalMaxPooling1D
+from keras.models import Sequential
 from keras.preprocessing.sequence import pad_sequences
 from keras.preprocessing.text import Tokenizer
+from sklearn.model_selection import train_test_split
 
-# parser = English()
 punctuations = string.punctuation
 
 # set parameters:
 max_features = 5000
-# maxlen = 150
+maxlen = 50
 batch_size = 128
 embedding_dims = 50
 filters = 250
@@ -62,43 +47,6 @@ def prepare_features():
 
 stoplist = set('for a of the and to in'.split())
 
-
-def my_tokenizer(sentence):
-    tokens = [word for word in sentence.lower().split() if word not in stoplist]
-    # remove words that appear only once
-    frequency = defaultdict(int)
-    for token in tokens:
-        frequency[token] += 1
-    return [token for token in tokens if frequency[token] > 1]
-
-
-# Create spacy tokenizer that parses a sentence and generates tokens
-# these can also be replaced by word vectors
-
-# def spacy_tokenizer(sentence):
-#     tokens = parser(sentence)
-#     tokens = [tok.lemma_.lower().strip() if tok.lemma_ != "-PRON-" else tok.lower_ for tok in tokens]
-#     tokens = [tok for tok in tokens if (tok not in stopwords and tok not in punctuations)]
-#     return tokens
-
-
-# Basic utility function to clean the text
-def clean_text(text):
-    return text.strip().lower()
-
-
-# Custom transformer using spaCy
-class predictors(TransformerMixin):
-    def transform(self, X, **transform_params):
-        return [clean_text(text) for text in X]
-
-    def fit(self, X, y=None, **fit_params):
-        return self
-
-    def get_params(self, deep=True):
-        return {}
-
-
 emoji = prepare_labels()
 print(emoji.icons.unique())
 emoji = transform_labels(emoji)
@@ -116,11 +64,10 @@ sequences_array = np.array(list(map(lambda x: np.array(x), sequences)))
 
 max_len = max(len(a) for a in sequences_array)
 
-maxlen = 50
-
 data = pad_sequences(sequences, maxlen=maxlen)
 
-inputs_train, inputs_test, expected_output_train, expected_output_test = train_test_split(data, emoji.as_matrix())  # matched OK
+inputs_train, inputs_test, expected_output_train, expected_output_test = train_test_split(data,
+                                                                                          emoji.as_matrix())  # matched OK
 
 model = Sequential()
 
@@ -158,28 +105,3 @@ model.fit(inputs_train, expected_output_train,
           batch_size=batch_size,
           epochs=epochs,
           validation_data=(inputs_test, expected_output_test))
-##########################
-
-# vectorizer = CountVectorizer(tokenizer=spacy_tokenizer, ngram_range=(1, 3))
-
-# classifier = LinearSVC()
-# classifier2 = SVC()
-# classifier3 = RandomForestClassifier()
-#
-# pipe = Pipeline([('cleaner', predictors()),
-#                  ('vectorizer', vectorizer),
-#                  ('classifier', classifier)])
-#
-# # Create model and measure accuracy
-# pipe.fit(inputs_train, expected_output_train)
-#
-# # now we can save it to a file
-# joblib.dump(pipe, 'model.pkl')
-#
-# pred_data = pipe.predict(inputs_test)
-#
-# for (sample, pred) in zip(inputs_test, pred_data):
-#     print(sample, ">>>>>", pred)
-#
-# print("Accuracy:", accuracy_score(expected_output_test, pred_data))
-
