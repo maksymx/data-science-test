@@ -6,6 +6,13 @@ from keras.models import Model
 from keras.preprocessing.sequence import pad_sequences
 from keras.preprocessing.text import Tokenizer
 from keras.utils import to_categorical
+from sklearn.model_selection import train_test_split
+
+maxlen = 50
+MAX_SEQUENCE_LENGTH = 1000
+MAX_NB_WORDS = 20000
+EMBEDDING_DIM = 100
+VALIDATION_SPLIT = 0.2
 
 
 def prepare_labels():
@@ -36,24 +43,40 @@ emoji = transform_labels(emoji)
 
 tweets = prepare_features()
 
-# inputs_train, inputs_test, expected_output_train, expected_output_test = train_test_split(tweets, emoji)  # matched OK
+# first, build index mapping words in the embeddings set
+# to their embedding vector
 
+print('Indexing word vectors.')
 
+embeddings_index = {}
+with open('glove.6B.100d.txt') as f:
+    for line in f:
+        values = line.split()
+        word = values[0]
+        coefs = np.asarray(values[1:], dtype='float32')
+        embeddings_index[word] = coefs
 
-MAX_SEQUENCE_LENGTH = 1000
-MAX_NB_WORDS = 20000
-EMBEDDING_DIM = 100
-VALIDATION_SPLIT = 0.2
+print('Found %s word vectors.' % len(embeddings_index))
 
-tokenizer = Tokenizer(nb_words=MAX_NB_WORDS)
+# second, prepare text samples and their labels
+print('Processing text dataset')
+
+tokenizer = Tokenizer(num_words=MAX_NB_WORDS)
 tokenizer.fit_on_texts(tweets)
 sequences = tokenizer.texts_to_sequences(tweets)
 
 word_index = tokenizer.word_index
 print('Found %s unique tokens.' % len(word_index))
 
-data = pad_sequences(sequences, maxlen=MAX_SEQUENCE_LENGTH)
-# here we can get REAL vectors!!!
+sequences_array = np.array(list(map(lambda x: np.array(x), sequences)))
+
+max_len = max(len(a) for a in sequences_array)
+
+data = pad_sequences(sequences, maxlen=maxlen)
+
+# inputs_train, inputs_test, expected_output_train, expected_output_test = train_test_split(data,
+#                                                                                           emoji.as_matrix())  # matched OK
+
 labels = to_categorical(np.asarray(emoji))
 print('Shape of data tensor:', data.shape)
 print('Shape of label tensor:', labels.shape)
@@ -63,12 +86,12 @@ indices = np.arange(data.shape[0])
 np.random.shuffle(indices)
 data = data[indices]
 labels = labels[indices]
-nb_validation_samples = int(VALIDATION_SPLIT * data.shape[0])
+num_validation_samples = int(VALIDATION_SPLIT * data.shape[0])
 
-x_train = data[:-nb_validation_samples]
-y_train = labels[:-nb_validation_samples]
-x_val = data[-nb_validation_samples:]
-y_val = labels[-nb_validation_samples:]
+x_train = data[:-num_validation_samples]
+y_train = labels[:-num_validation_samples]
+x_val = data[-num_validation_samples:]
+y_val = labels[-num_validation_samples:]
 
 print('Preparing embedding matrix.')
 
@@ -81,7 +104,11 @@ for word, i in word_index.items():
     embedding_vector = embeddings_index.get(word)
     if embedding_vector is not None:
         # words not found in embedding index will be all-zeros.
-        embedding_matrix[i] = embedding_vector
+        if len(embedding_matrix[i]) == len(embedding_vector):
+            embedding_matrix[i] = embedding_vector
+        else:
+            print(len(embedding_matrix[i]), ">>>>>>>", len(embedding_vector))
+            embedding_matrix[i] = np.resize(embedding_vector, (1, len(embedding_matrix[i])))
 
 # load pre-trained word embeddings into an Embedding layer
 # note that we set trainable = False so as to keep the embeddings fixed
@@ -104,7 +131,7 @@ x = Conv1D(128, 5, activation='relu')(x)
 x = MaxPooling1D(35)(x)
 x = Flatten()(x)
 x = Dense(128, activation='relu')(x)
-preds = Dense(len(labels_index), activation='softmax')(x)
+preds = Dense(len(emoji), activation='softmax')(x)
 
 model = Model(sequence_input, preds)
 model.compile(loss='categorical_crossentropy',
