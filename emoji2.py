@@ -1,3 +1,5 @@
+import re
+
 import numpy as np
 import pandas as pd
 from keras.layers import Conv1D, MaxPooling1D, Embedding
@@ -10,9 +12,8 @@ from keras.utils import to_categorical
 from helper_functions import get_embeddings_index
 
 BASE_DIR = '.'
-
+LINKS_RE = re.compile(r'https?:\/\/.*[\r\n]*', flags=re.MULTILINE)
 TEXT_DATA_DIR = BASE_DIR + '/20_newsgroup/'
-maxlen = 50
 MAX_SEQUENCE_LENGTH = 1000
 MAX_NB_WORDS = 20000
 EMBEDDING_DIM = 100
@@ -34,14 +35,19 @@ def transform_labels(emoji):
 
 
 def prepare_features():
+    tweets = []
     with open('tweets.txt') as f:
-        tweets = f.readlines()
+        for line in f.readlines():
+            line = LINKS_RE.sub('', line)
+            line = line.strip()
+            tweets.append(line)
     return tweets
 
 
 if __name__ == '__main__':
     emoji = prepare_labels()
-    print(emoji.icons.unique())
+    unique_emojis = emoji.icons.unique()
+    print(unique_emojis)
     emoji = transform_labels(emoji)
     tweets = prepare_features()
 
@@ -57,11 +63,11 @@ if __name__ == '__main__':
     word_index = tokenizer.word_index
     print('Found %s unique tokens.' % len(word_index))
 
-    sequences_array = np.array(list(map(lambda x: np.array(x), sequences)))
+    # sequences_array = np.array(list(map(lambda x: np.array(x), sequences)))
+    #
+    # max_len = max(len(a) for a in sequences_array)
 
-    max_len = max(len(a) for a in sequences_array)
-
-    data = pad_sequences(sequences, maxlen=maxlen)
+    data = pad_sequences(sequences, maxlen=MAX_SEQUENCE_LENGTH)
 
     # inputs_train, inputs_test, expected_output_train, expected_output_test = train_test_split(data,
     #                                                                                           emoji.as_matrix())  # matched OK
@@ -108,7 +114,7 @@ if __name__ == '__main__':
                                 trainable=False)
 
     print('Training model.')
-
+    # import pdb; pdb.set_trace()
     # train a 1D convnet with global maxpooling
     sequence_input = Input(shape=(MAX_SEQUENCE_LENGTH,), dtype='int32')
     embedded_sequences = embedding_layer(sequence_input)
@@ -120,7 +126,7 @@ if __name__ == '__main__':
     x = MaxPooling1D(35)(x)
     x = Flatten()(x)
     x = Dense(128, activation='relu')(x)
-    preds = Dense(len(emoji), activation='softmax')(x)
+    preds = Dense(len(unique_emojis), activation='softmax')(x)
 
     model = Model(sequence_input, preds)
     model.compile(loss='categorical_crossentropy',

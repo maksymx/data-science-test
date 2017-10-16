@@ -23,6 +23,7 @@ from keras.models import Model
 from keras.preprocessing.sequence import pad_sequences
 from keras.preprocessing.text import Tokenizer
 from keras.utils import to_categorical
+from helper_functions import get_embeddings_index
 
 BASE_DIR = '.'
 GLOVE_DIR = BASE_DIR + '/glove.6B/'
@@ -32,23 +33,8 @@ MAX_NB_WORDS = 20000
 EMBEDDING_DIM = 100
 VALIDATION_SPLIT = 0.2
 
-# first, build index mapping words in the embeddings set
-# to their embedding vector
 
-print('Indexing word vectors.')
-
-embeddings_index = {}
-with open(os.path.join(GLOVE_DIR, 'glove.6B.100d.txt')) as f:
-    for line in f:
-        values = line.split()
-        word = values[0]
-        coefs = np.asarray(values[1:], dtype='float32')
-        embeddings_index[word] = coefs
-
-print('Found %s word vectors.' % len(embeddings_index))
-
-# second, prepare text samples and their labels
-print('Processing text dataset')
+embeddings_index = get_embeddings_index()
 
 texts = []  # list of text samples
 labels_index = {}  # dictionary mapping label name to numeric id
@@ -123,7 +109,7 @@ embedding_layer = Embedding(num_words,
                             trainable=False)
 
 print('Training model.')
-
+import pdb; pdb.set_trace()
 # train a 1D convnet with global maxpooling
 sequence_input = Input(shape=(MAX_SEQUENCE_LENGTH,), dtype='int32')
 embedded_sequences = embedding_layer(sequence_input)
