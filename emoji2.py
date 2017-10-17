@@ -63,10 +63,6 @@ if __name__ == '__main__':
     word_index = tokenizer.word_index
     print('Found %s unique tokens.' % len(word_index))
 
-    # sequences_array = np.array(list(map(lambda x: np.array(x), sequences)))
-    #
-    # max_len = max(len(a) for a in sequences_array)
-
     data = pad_sequences(sequences, maxlen=MAX_SEQUENCE_LENGTH)
 
     # inputs_train, inputs_test, expected_output_train, expected_output_test = train_test_split(data,
@@ -111,6 +107,7 @@ if __name__ == '__main__':
                                 EMBEDDING_DIM,
                                 weights=[embedding_matrix],
                                 input_length=MAX_SEQUENCE_LENGTH,
+                                # trainable=False
                                 )
 
     print('Training model.')
@@ -134,7 +131,8 @@ if __name__ == '__main__':
                   metrics=['acc'])
 
     model.fit(x_train, y_train,
-              batch_size=256,
+              # batch_size=256,
+              batch_size=128,
               epochs=5,
               validation_data=(x_val, y_val))
 
