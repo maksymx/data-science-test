@@ -111,7 +111,7 @@ if __name__ == '__main__':
                                 EMBEDDING_DIM,
                                 weights=[embedding_matrix],
                                 input_length=MAX_SEQUENCE_LENGTH,
-                                trainable=False)
+                                )
 
     print('Training model.')
     # import pdb; pdb.set_trace()
@@ -134,8 +134,8 @@ if __name__ == '__main__':
                   metrics=['acc'])
 
     model.fit(x_train, y_train,
-              batch_size=128,
-              epochs=10,
+              batch_size=256,
+              epochs=5,
               validation_data=(x_val, y_val))
 
     model.save('my_model.h5')

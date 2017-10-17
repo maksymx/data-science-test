@@ -109,7 +109,7 @@ embedding_layer = Embedding(num_words,
                             trainable=False)
 
 print('Training model.')
-import pdb; pdb.set_trace()
+
 # train a 1D convnet with global maxpooling
 sequence_input = Input(shape=(MAX_SEQUENCE_LENGTH,), dtype='int32')
 embedded_sequences = embedding_layer(sequence_input)
