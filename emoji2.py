@@ -8,6 +8,8 @@ from keras.models import Model
 from keras.preprocessing.sequence import pad_sequences
 from keras.preprocessing.text import Tokenizer
 from keras.utils import to_categorical
+from nltk import WordNetLemmatizer
+from sklearn.feature_extraction.stop_words import ENGLISH_STOP_WORDS as stopwords
 
 from helper_functions import get_embeddings_index
 
@@ -35,12 +37,14 @@ def transform_labels(emoji):
 
 
 def prepare_features():
+    lemmatizer = WordNetLemmatizer()
     tweets = []
     with open('tweets.txt') as f:
         for line in f.readlines():
-            line = LINKS_RE.sub('', line)
-            line = line.strip()
-            tweets.append(line)
+            line2 = LINKS_RE.sub('', line)
+            line3 = line2.strip()
+            line4 = [lemmatizer.lemmatize(t.lower()) for t in line3.split() if t.lower() not in stopwords]
+            tweets.append(' '.join(line4))
     return tweets
 
 
@@ -65,8 +69,10 @@ if __name__ == '__main__':
 
     data = pad_sequences(sequences, maxlen=MAX_SEQUENCE_LENGTH)
 
-    # inputs_train, inputs_test, expected_output_train, expected_output_test = train_test_split(data,
-    #                                                                                           emoji.as_matrix())  # matched OK
+    # TODO: remove stopwords
+    # TODO: try tf-idf
+    # TODO: https://stackoverflow.com/questions/33536182/testing-the-keras-sentiment-classification-with-model-predict
+    # TODO:
 
     labels = to_categorical(np.asarray(emoji))
     print('Shape of data tensor:', data.shape)
