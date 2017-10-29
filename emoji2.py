@@ -62,7 +62,7 @@ if __name__ == '__main__':
 
     tokenizer = Tokenizer(num_words=MAX_NB_WORDS)
     tokenizer.fit_on_texts(tweets)
-    sequences = tokenizer.texts_to_sequences(tweets)
+    sequences = tokenizer.texts_to_matrix(tweets, mode='tfidf')
 
     word_index = tokenizer.word_index
     print('Found %s unique tokens.' % len(word_index))
@@ -103,9 +103,6 @@ if __name__ == '__main__':
             # words not found in embedding index will be all-zeros.
             if len(embedding_matrix[i]) == len(embedding_vector):
                 embedding_matrix[i] = embedding_vector
-            else:
-                print(len(embedding_matrix[i]), ">>>>>>>", len(embedding_vector))
-                embedding_matrix[i] = np.resize(embedding_vector, (1, len(embedding_matrix[i])))
 
     # load pre-trained word embeddings into an Embedding layer
     # note that we set trainable = False so as to keep the embeddings fixed
