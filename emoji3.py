@@ -1,17 +1,24 @@
+import re
 import string
 from collections import defaultdict
 
 import pandas as pd
+from nltk.stem.snowball import SnowballStemmer
 from sklearn.base import TransformerMixin
 from sklearn.ensemble import RandomForestClassifier
 from sklearn.externals import joblib
 from sklearn.feature_extraction.stop_words import ENGLISH_STOP_WORDS as stopwords
 from sklearn.feature_extraction.text import CountVectorizer
-from sklearn.metrics import accuracy_score
+from sklearn.feature_extraction.text import TfidfTransformer
+from sklearn.linear_model import SGDClassifier
+from sklearn.metrics import accuracy_score, confusion_matrix
 from sklearn.model_selection import train_test_split
+from sklearn.naive_bayes import MultinomialNB
 from sklearn.pipeline import Pipeline
-from sklearn.svm import SVC, LinearSVC
+from sklearn.svm import SVC
 from spacy.en import English
+import sklearn.cross_validation as cross_validation
+from sklearn.model_selection import StratifiedShuffleSplit
 
 # from gensim.models import Word2Vec
 
@@ -28,6 +35,31 @@ kernel_size = 3
 hidden_dims = 250
 epochs = 2
 MAX_NB_WORDS = 20000
+LINKS_RE = re.compile(r'https?:\/\/.*[\r\n]*', flags=re.MULTILINE)
+
+stemmer = SnowballStemmer("english", ignore_stopwords=True)
+
+
+
+def classifier(X, y, model_class, shuffle=True, n_folds=10, **kwargs):
+    stratified_k_fold = cross_validation.StratifiedShuffleSplit(y, test_size=0.2, random_state=30)
+    y_pred = y.copy()
+    for ii, jj in stratified_k_fold:
+        X_train, X_test = X[ii], X[jj]
+        y_train = y[ii]
+#         print y_train.count()
+#         print (y[y == 1].count())
+#         print (y[y == 0].count())
+        clf = model_class(**kwargs)
+        clf.fit(X_train,y_train)
+        y_pred[jj] = clf.predict(X_test)
+    return y_pred
+
+
+class StemmedCountVectorizer(CountVectorizer):
+    def build_analyzer(self):
+        analyzer = super(StemmedCountVectorizer, self).build_analyzer()
+        return lambda doc: ([stemmer.stem(w) for w in analyzer(doc)])
 
 
 def prepare_labels():
@@ -46,15 +78,19 @@ def transform_labels(emoji):
 
 
 def prepare_features():
+    # lemmatizer = WordNetLemmatizer()
+    tweets = []
     with open('tweets.txt') as f:
-        tweets = f.readlines()
+        for line in f.readlines():
+            line = LINKS_RE.sub('', line)
+            line = line.strip()
+            line = [t for t in line.split() if t.lower() not in stopwords]
+            tweets.append(' '.join(line))
     return tweets
 
 
-stoplist = set('for a of the and to in'.split())
-
-
 def my_tokenizer(sentence):
+    stoplist = set('for a of the and to in'.split())
     tokens = [word for word in sentence.lower().split() if word not in stoplist]
     # remove words that appear only once
     frequency = defaultdict(int)
@@ -90,34 +126,80 @@ class predictors(TransformerMixin):
         return {}
 
 
-emoji = prepare_labels()
-print(emoji.icons.unique())
-emoji = transform_labels(emoji)
+if __name__ == '__main__':
+    emoji = prepare_labels()
+    print(emoji.icons.unique())
+    emoji = transform_labels(emoji)
+    print(emoji.icons.value_counts())
 
-tweets = prepare_features()
+    tweets = prepare_features()
 
-inputs_train, inputs_test, expected_output_train, expected_output_test = train_test_split(tweets,
-                                                                                          emoji.as_matrix())  # matched OK
+    inputs_train, inputs_test, \
+    expected_output_train, expected_output_test = train_test_split(tweets, emoji.as_matrix())  # matched OK
 
-vectorizer = CountVectorizer(tokenizer=spacy_tokenizer, ngram_range=(1, 3))
 
-classifier = LinearSVC()
-classifier2 = SVC()
-classifier3 = RandomForestClassifier()
 
-pipe = Pipeline([('cleaner', predictors()),
-                 ('vectorizer', vectorizer),
-                 ('classifier', classifier)])
+    # count_vect = CountVectorizer()
+    # X_train_counts = count_vect.fit_transform(inputs_train)
+    # print(X_train_counts.shape)
+    #
+    # tfidf_transformer = TfidfTransformer()
+    # X_train_tfidf = tfidf_transformer.fit_transform(X_train_counts)
+    # print(X_train_tfidf.shape)
+    #
+    # clf = MultinomialNB().fit(X_train_tfidf, expected_output_train)
 
-# Create model and measure accuracy
-pipe.fit(inputs_train, expected_output_train)
+    # text_clf = Pipeline([
+    #     ('vect', CountVectorizer()),
+    #     ('tfidf', TfidfTransformer()),
+    #     # ('clf', MultinomialNB()),
+    #     ('clf-svm', SGDClassifier(loss='hinge', penalty='l2', alpha=1e-3, n_iter=5, random_state=42)),
+    # ])
 
-# now we can save it to a file
-joblib.dump(pipe, 'model.pkl')
+    # vectorizer = CountVectorizer(tokenizer=spacy_tokenizer, ngram_range=(3, 3))
+    #
+    # classifier = LinearSVC()
+    # classifier2 = SVC()
+    # classifier3 = RandomForestClassifier()
+    # classifier4 = MultinomialNB()
+    #
+    # pipe = Pipeline([('cleaner', predictors()),
+    #                  ('vectorizer', vectorizer),
+    #                  ('classifier', classifier4)])
+    #
+    # # Create model and measure accuracy
+    # pipe.fit(inputs_train, expected_output_train)
 
-pred_data = pipe.predict(inputs_test)
+    # # now we can save it to a file
+    # joblib.dump(pipe, 'model.pkl')
+    #
+    # pred_data = pipe.predict(inputs_test)
+    #
+    # for (sample, pred) in zip(inputs_test, pred_data):
+    #     print(sample, ">>>>>", pred)
+    #
+    # print("Accuracy:", accuracy_score(expected_output_test, pred_data))
 
-for (sample, pred) in zip(inputs_test, pred_data):
-    print(sample, ">>>>>", pred)
+    svc = confusion_matrix(expected_output_train, classifier(inputs_train, expected_output_train, SVC))
+    print(svc)
 
-print("Accuracy:", accuracy_score(expected_output_test, pred_data))
+    stemmed_count_vect = StemmedCountVectorizer(stop_words='english')
+    text_clf = Pipeline([('vect', stemmed_count_vect),
+                         ('tfidf', TfidfTransformer()),
+
+                         # ('mnb', MultinomialNB(fit_prior=False)),
+                         ('classifier', RandomForestClassifier()),
+                         ])
+
+    text_clf.fit(inputs_train, expected_output_train)
+
+    # now we can save it to a file
+    joblib.dump(text_clf, 'model.pkl')
+
+    pred_data = text_clf.predict(inputs_test)
+
+    for (sample, pred) in zip(inputs_test, pred_data):
+        print(sample, ">>>>>", pred)
+
+    print("Accuracy:", accuracy_score(expected_output_test, pred_data))
+
