@@ -1,11 +1,20 @@
 import os
 import pickle
+import re
 from urllib.request import urlretrieve
 
 import numpy as np
+from nltk import WordNetLemmatizer
+from sklearn.feature_extraction.stop_words import ENGLISH_STOP_WORDS as stopwords
 
 BASE_DIR = '.'
 GLOVE_DIR = BASE_DIR + '/glove.6B/'
+
+LINKS_RE = re.compile(r'https?:\/\/.*[\r\n]*', flags=re.MULTILINE)
+RETWEET_RE = re.compile(r'RT', flags=re.MULTILINE)
+PUNCTUATION_RE = re.compile(r'[#?@\._:!,=\-]+', flags=re.MULTILINE)
+
+lemmatizer = WordNetLemmatizer()
 
 
 def get_embeddings_index():
@@ -41,3 +50,13 @@ def get_embeddings_index():
 
     print('Found %s word vectors.' % len(embeddings_index))
     return embeddings_index
+
+
+def transform_tweet(tweet):
+    tweet = LINKS_RE.sub('', tweet)
+    tweet = RETWEET_RE.sub('', tweet)
+    tweet = PUNCTUATION_RE.sub('', tweet)
+    tweet = tweet.strip()
+    tweet = tweet.lower()
+    tweet = ' '.join([t for t in tweet.split() if t not in stopwords])
+    return tweet

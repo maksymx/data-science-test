@@ -1,8 +1,8 @@
-import re
 import string
 from collections import defaultdict
 
 import pandas as pd
+import sklearn.cross_validation as cross_validation
 from nltk.stem.snowball import SnowballStemmer
 from sklearn.base import TransformerMixin
 from sklearn.ensemble import RandomForestClassifier
@@ -10,35 +10,21 @@ from sklearn.externals import joblib
 from sklearn.feature_extraction.stop_words import ENGLISH_STOP_WORDS as stopwords
 from sklearn.feature_extraction.text import CountVectorizer
 from sklearn.feature_extraction.text import TfidfTransformer
-from sklearn.linear_model import SGDClassifier
 from sklearn.metrics import accuracy_score, confusion_matrix
 from sklearn.model_selection import train_test_split
 from sklearn.naive_bayes import MultinomialNB
 from sklearn.pipeline import Pipeline
-from sklearn.svm import SVC
+from sklearn.svm import SVC, LinearSVC
 from spacy.en import English
-import sklearn.cross_validation as cross_validation
-from sklearn.model_selection import StratifiedShuffleSplit
+
+from helper_functions import transform_tweet
 
 # from gensim.models import Word2Vec
 
 parser = English()
 punctuations = string.punctuation
 
-# set parameters:
-max_features = 5000
-# maxlen = 150
-batch_size = 128
-embedding_dims = 50
-filters = 250
-kernel_size = 3
-hidden_dims = 250
-epochs = 2
-MAX_NB_WORDS = 20000
-LINKS_RE = re.compile(r'https?:\/\/.*[\r\n]*', flags=re.MULTILINE)
-
 stemmer = SnowballStemmer("english", ignore_stopwords=True)
-
 
 
 def classifier(X, y, model_class, shuffle=True, n_folds=10, **kwargs):
@@ -47,11 +33,11 @@ def classifier(X, y, model_class, shuffle=True, n_folds=10, **kwargs):
     for ii, jj in stratified_k_fold:
         X_train, X_test = X[ii], X[jj]
         y_train = y[ii]
-#         print y_train.count()
-#         print (y[y == 1].count())
-#         print (y[y == 0].count())
+        #         print y_train.count()
+        #         print (y[y == 1].count())
+        #         print (y[y == 0].count())
         clf = model_class(**kwargs)
-        clf.fit(X_train,y_train)
+        clf.fit(X_train, y_train)
         y_pred[jj] = clf.predict(X_test)
     return y_pred
 
@@ -78,14 +64,11 @@ def transform_labels(emoji):
 
 
 def prepare_features():
-    # lemmatizer = WordNetLemmatizer()
     tweets = []
     with open('tweets.txt') as f:
         for line in f.readlines():
-            line = LINKS_RE.sub('', line)
-            line = line.strip()
-            line = [t for t in line.split() if t.lower() not in stopwords]
-            tweets.append(' '.join(line))
+            tweet = transform_tweet(line)
+            tweets.append(tweet)
     return tweets
 
 
@@ -137,8 +120,6 @@ if __name__ == '__main__':
     inputs_train, inputs_test, \
     expected_output_train, expected_output_test = train_test_split(tweets, emoji.as_matrix())  # matched OK
 
-
-
     # count_vect = CountVectorizer()
     # X_train_counts = count_vect.fit_transform(inputs_train)
     # print(X_train_counts.shape)
@@ -180,15 +161,15 @@ if __name__ == '__main__':
     #
     # print("Accuracy:", accuracy_score(expected_output_test, pred_data))
 
-    svc = confusion_matrix(expected_output_train, classifier(inputs_train, expected_output_train, SVC))
-    print(svc)
+    # svc = confusion_matrix(expected_output_train, classifier(inputs_train, expected_output_train, SVC))
+    # print(svc)
 
     stemmed_count_vect = StemmedCountVectorizer(stop_words='english')
     text_clf = Pipeline([('vect', stemmed_count_vect),
                          ('tfidf', TfidfTransformer()),
-
                          # ('mnb', MultinomialNB(fit_prior=False)),
-                         ('classifier', RandomForestClassifier()),
+                         # ('classifier', RandomForestClassifier()),
+                         ('classifier', LinearSVC()),
                          ])
 
     text_clf.fit(inputs_train, expected_output_train)
@@ -202,4 +183,3 @@ if __name__ == '__main__':
         print(sample, ">>>>>", pred)
 
     print("Accuracy:", accuracy_score(expected_output_test, pred_data))
-

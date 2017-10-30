@@ -8,10 +8,8 @@ from keras.models import Model
 from keras.preprocessing.sequence import pad_sequences
 from keras.preprocessing.text import Tokenizer
 from keras.utils import to_categorical
-from nltk import WordNetLemmatizer
-from sklearn.feature_extraction.stop_words import ENGLISH_STOP_WORDS as stopwords
 
-from helper_functions import get_embeddings_index
+from helper_functions import get_embeddings_index, transform_tweet
 
 BASE_DIR = '.'
 LINKS_RE = re.compile(r'https?:\/\/.*[\r\n]*', flags=re.MULTILINE)
@@ -37,14 +35,11 @@ def transform_labels(emoji):
 
 
 def prepare_features():
-    lemmatizer = WordNetLemmatizer()
     tweets = []
     with open('tweets.txt') as f:
         for line in f.readlines():
-            line2 = LINKS_RE.sub('', line)
-            line3 = line2.strip()
-            line4 = [lemmatizer.lemmatize(t.lower()) for t in line3.split() if t.lower() not in stopwords]
-            tweets.append(' '.join(line4))
+            tweet = transform_tweet(line)
+            tweets.append(tweet)
     return tweets
 
 
