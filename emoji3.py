@@ -1,9 +1,12 @@
 import string
 from collections import defaultdict
-
+import itertools
+import numpy as np
 import pandas as pd
-import sklearn.cross_validation as cross_validation
+from sklearn.cross_validation import cross_val_score
+from sklearn import cross_validation
 from nltk.stem.snowball import SnowballStemmer
+from nltk import ngrams
 from sklearn.base import TransformerMixin
 from sklearn.ensemble import RandomForestClassifier
 from sklearn.externals import joblib
@@ -16,36 +19,27 @@ from sklearn.naive_bayes import MultinomialNB
 from sklearn.pipeline import Pipeline
 from sklearn.svm import SVC, LinearSVC
 from spacy.en import English
+from sklearn.model_selection import StratifiedShuffleSplit
+import matplotlib.pyplot as plt
 
 from helper_functions import transform_tweet
-
-# from gensim.models import Word2Vec
 
 parser = English()
 punctuations = string.punctuation
 
-stemmer = SnowballStemmer("english", ignore_stopwords=True)
-
-
-def classifier(X, y, model_class, shuffle=True, n_folds=10, **kwargs):
-    stratified_k_fold = cross_validation.StratifiedShuffleSplit(y, test_size=0.2, random_state=30)
-    y_pred = y.copy()
-    for ii, jj in stratified_k_fold:
-        X_train, X_test = X[ii], X[jj]
-        y_train = y[ii]
-        #         print y_train.count()
-        #         print (y[y == 1].count())
-        #         print (y[y == 0].count())
-        clf = model_class(**kwargs)
-        clf.fit(X_train, y_train)
-        y_pred[jj] = clf.predict(X_test)
-    return y_pred
-
 
 class StemmedCountVectorizer(CountVectorizer):
+    stemmer = SnowballStemmer("english", ignore_stopwords=True)
+
     def build_analyzer(self):
-        analyzer = super(StemmedCountVectorizer, self).build_analyzer()
-        return lambda doc: ([stemmer.stem(w) for w in analyzer(doc)])
+        # analyzer = super(StemmedCountVectorizer, self).build_analyzer()
+
+        def func(doc):
+            for w in doc:
+                stemmed = self.stemmer.stem(w)
+                yield stemmed
+
+        return func
 
 
 def prepare_labels():
@@ -70,6 +64,31 @@ def prepare_features():
             tweet = transform_tweet(line)
             tweets.append(tweet)
     return tweets
+
+
+def classifier(X, y, model_class, shuffle=True, n_folds=10, **kwargs):
+    stratified_k_fold = cross_validation.StratifiedShuffleSplit(y, test_size=0.2, random_state=30)
+    y_pred = y.copy()
+    for ii, jj in stratified_k_fold:
+        X_train, X_test = X[ii], X[jj]
+        y_train = y[ii]
+        #         print y_train.count()
+        #         print (y[y == 1].count())
+        #         print (y[y == 0].count())
+        clf = model_class(**kwargs)
+        clf.fit(X_train, y_train)
+        y_pred[jj] = clf.predict(X_test)
+    return y_pred
+
+
+def n_gramize_features_labels(features, labels):
+    inputs, outputs = [], []
+    for (inp, outp) in zip(features, labels):
+        tri_grams = ngrams(inp.split(), 4)
+        for gram in tri_grams:
+            inputs.append(gram)
+            outputs.append(outp)
+    return inputs, outputs
 
 
 def my_tokenizer(sentence):
@@ -118,7 +137,10 @@ if __name__ == '__main__':
     tweets = prepare_features()
 
     inputs_train, inputs_test, \
-    expected_output_train, expected_output_test = train_test_split(tweets, emoji.as_matrix())  # matched OK
+    expected_output_train, expected_output_test = train_test_split(tweets, emoji.as_matrix())
+
+    n_grammed_inputs_train, n_grammed_output_train = n_gramize_features_labels(inputs_train, expected_output_train)
+    n_grammed_inputs_test, n_grammed_output_test = n_gramize_features_labels(inputs_test, expected_output_test)
 
     # count_vect = CountVectorizer()
     # X_train_counts = count_vect.fit_transform(inputs_train)
@@ -172,14 +194,16 @@ if __name__ == '__main__':
                          ('classifier', LinearSVC()),
                          ])
 
-    text_clf.fit(inputs_train, expected_output_train)
+    text_clf.fit(n_grammed_inputs_train, n_grammed_output_train)
+    # text_clf.fit(inputs_train, expected_output_train)
 
     # now we can save it to a file
     joblib.dump(text_clf, 'model.pkl')
 
-    pred_data = text_clf.predict(inputs_test)
+    pred_data = text_clf.predict(n_grammed_inputs_test)
+    # pred_data = text_clf.predict(inputs_test)
 
-    for (sample, pred) in zip(inputs_test, pred_data):
+    for (sample, pred) in zip(n_grammed_inputs_test, pred_data):
         print(sample, ">>>>>", pred)
 
-    print("Accuracy:", accuracy_score(expected_output_test, pred_data))
+    print("Accuracy:", accuracy_score(n_grammed_output_test, pred_data))
