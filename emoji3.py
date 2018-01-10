@@ -16,6 +16,7 @@ from sklearn.feature_extraction.text import TfidfTransformer
 from sklearn.metrics import accuracy_score, confusion_matrix
 from sklearn.model_selection import train_test_split
 from sklearn.naive_bayes import MultinomialNB
+from nltk.classify.naivebayes import NaiveBayesClassifier
 from sklearn.pipeline import Pipeline
 from sklearn.svm import SVC, LinearSVC
 from spacy.en import English
@@ -32,10 +33,10 @@ class StemmedCountVectorizer(CountVectorizer):
     stemmer = SnowballStemmer("english", ignore_stopwords=True)
 
     def build_analyzer(self):
-        # analyzer = super(StemmedCountVectorizer, self).build_analyzer()
+        analyzer = super(StemmedCountVectorizer, self).build_analyzer()
 
         def func(doc):
-            for w in doc:
+            for w in analyzer(doc):
                 stemmed = self.stemmer.stem(w)
                 yield stemmed
 
@@ -139,9 +140,6 @@ if __name__ == '__main__':
     inputs_train, inputs_test, \
     expected_output_train, expected_output_test = train_test_split(tweets, emoji.as_matrix())
 
-    n_grammed_inputs_train, n_grammed_output_train = n_gramize_features_labels(inputs_train, expected_output_train)
-    n_grammed_inputs_test, n_grammed_output_test = n_gramize_features_labels(inputs_test, expected_output_test)
-
     # count_vect = CountVectorizer()
     # X_train_counts = count_vect.fit_transform(inputs_train)
     # print(X_train_counts.shape)
@@ -194,16 +192,14 @@ if __name__ == '__main__':
                          ('classifier', LinearSVC()),
                          ])
 
-    text_clf.fit(n_grammed_inputs_train, n_grammed_output_train)
-    # text_clf.fit(inputs_train, expected_output_train)
+    text_clf.fit(inputs_train, expected_output_train)
 
     # now we can save it to a file
     joblib.dump(text_clf, 'model.pkl')
 
-    pred_data = text_clf.predict(n_grammed_inputs_test)
-    # pred_data = text_clf.predict(inputs_test)
+    pred_data = text_clf.predict(inputs_test)
 
-    for (sample, pred) in zip(n_grammed_inputs_test, pred_data):
+    for (sample, pred) in zip(inputs_test, pred_data):
         print(sample, ">>>>>", pred)
 
-    print("Accuracy:", accuracy_score(n_grammed_output_test, pred_data))
+    print("Accuracy:", accuracy_score(expected_output_test, pred_data))
