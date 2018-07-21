@@ -12,6 +12,7 @@ GLOVE_DIR = BASE_DIR + '/glove.6B/'
 
 LINKS_RE = re.compile(r'https?:\/\/.*[\r\n]*', flags=re.MULTILINE)
 RETWEET_RE = re.compile(r'RT', flags=re.MULTILINE)
+ONLY_WORDS_RE = re.compile(r'[^a-zA-Z]', flags=re.MULTILINE)
 PUNCTUATION_RE = re.compile(r'[#?@\._:!,=\-]+', flags=re.MULTILINE)
 
 lemmatizer = WordNetLemmatizer()
