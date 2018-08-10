@@ -1,29 +1,21 @@
+import csv
 import string
 from collections import defaultdict
-import itertools
-import numpy as np
+
 import pandas as pd
-from sklearn.cross_validation import cross_val_score
-from sklearn import cross_validation
-from nltk.stem.snowball import SnowballStemmer
 from nltk import ngrams
+from nltk.stem.snowball import SnowballStemmer
+from sklearn import cross_validation
 from sklearn.base import TransformerMixin
-from sklearn.ensemble import RandomForestClassifier
 from sklearn.externals import joblib
 from sklearn.feature_extraction.stop_words import ENGLISH_STOP_WORDS as stopwords
 from sklearn.feature_extraction.text import CountVectorizer
 from sklearn.feature_extraction.text import TfidfTransformer
-from sklearn.metrics import accuracy_score, confusion_matrix
+from sklearn.metrics import accuracy_score
 from sklearn.model_selection import train_test_split
-from sklearn.naive_bayes import MultinomialNB
-from nltk.classify.naivebayes import NaiveBayesClassifier
 from sklearn.pipeline import Pipeline
-from sklearn.svm import SVC, LinearSVC
+from sklearn.svm import LinearSVC
 from spacy.en import English
-from sklearn.model_selection import StratifiedShuffleSplit
-import matplotlib.pyplot as plt
-
-from helper_functions import transform_tweet
 
 parser = English()
 punctuations = string.punctuation
@@ -41,30 +33,6 @@ class StemmedCountVectorizer(CountVectorizer):
                 yield stemmed
 
         return func
-
-
-def prepare_labels():
-    emoji = pd.read_csv('emoji.txt', sep="\n", header=None)
-    emoji.columns = ["icons"]
-    emoji.index += 1
-    return emoji
-
-
-def transform_labels(emoji):
-    for i, name in ((0, 'heart_eyes'), (1, 'yum'), (2, 'sob'), (3, 'blush'), (4, 'weary'),
-                    (5, 'smirk'), (6, 'grin'), (7, 'flushed'), (8, 'relaxed'), (9, 'wink')):
-        emoji['icons'].replace(name, i, inplace=True)
-    emoji.reindex()
-    return emoji
-
-
-def prepare_features():
-    tweets = []
-    with open('tweets.txt') as f:
-        for line in f.readlines():
-            tweet = transform_tweet(line)
-            tweets.append(tweet)
-    return tweets
 
 
 def classifier(X, y, model_class, shuffle=True, n_folds=10, **kwargs):
@@ -130,15 +98,10 @@ class predictors(TransformerMixin):
 
 
 if __name__ == '__main__':
-    emoji = prepare_labels()
-    print(emoji.icons.unique())
-    emoji = transform_labels(emoji)
-    print(emoji.icons.value_counts())
+    tweets = pd.read_csv('data/tweets.txt', delimiter='\n', header=None, quoting=csv.QUOTE_NONE)
+    emoji = pd.read_csv('data/emoji.txt', delimiter='\n', header=None, quoting=csv.QUOTE_NONE)
 
-    tweets = prepare_features()
-
-    inputs_train, inputs_test, \
-    expected_output_train, expected_output_test = train_test_split(tweets, emoji.as_matrix())
+    X_train, X_test, y_train, y_test = train_test_split(tweets, emoji, test_size=0.2, shuffle=False)
 
     # count_vect = CountVectorizer()
     # X_train_counts = count_vect.fit_transform(inputs_train)
@@ -184,22 +147,25 @@ if __name__ == '__main__':
     # svc = confusion_matrix(expected_output_train, classifier(inputs_train, expected_output_train, SVC))
     # print(svc)
 
-    stemmed_count_vect = StemmedCountVectorizer(stop_words='english')
-    text_clf = Pipeline([('vect', stemmed_count_vect),
-                         ('tfidf', TfidfTransformer()),
-                         # ('mnb', MultinomialNB(fit_prior=False)),
-                         # ('classifier', RandomForestClassifier()),
-                         ('classifier', LinearSVC()),
-                         ])
+    text_clf = Pipeline(
+        [
+            # ('vect', StemmedCountVectorizer(stop_words='english')),
+            ('vect', CountVectorizer()),
+            ('tfidf', TfidfTransformer()),
+            # ('mnb', MultinomialNB(fit_prior=False)),
+            # ('classifier', RandomForestClassifier()),
+            ('classifier', LinearSVC()),
+        ]
+    )
 
-    text_clf.fit(inputs_train, expected_output_train)
+    text_clf.fit(X_train.as_matrix(), y_train.as_matrix())
 
     # now we can save it to a file
     joblib.dump(text_clf, 'model.pkl')
 
-    pred_data = text_clf.predict(inputs_test)
+    pred_data = text_clf.predict(X_test)
 
-    for (sample, pred) in zip(inputs_test, pred_data):
+    for (sample, pred) in zip(X_test, pred_data):
         print(sample, ">>>>>", pred)
 
-    print("Accuracy:", accuracy_score(expected_output_test, pred_data))
+    print("Accuracy:", accuracy_score(X_test, pred_data))
