@@ -2,23 +2,22 @@ import csv
 import string
 from collections import defaultdict
 
+import numpy as np
 import pandas as pd
 from nltk import ngrams
 from nltk.stem.snowball import SnowballStemmer
 from sklearn import cross_validation
+from sklearn import preprocessing
 from sklearn.base import TransformerMixin
 from sklearn.externals import joblib
-from sklearn.feature_extraction.stop_words import ENGLISH_STOP_WORDS as stopwords
-from sklearn.feature_extraction.text import CountVectorizer
-from sklearn.feature_extraction.text import TfidfTransformer
+from sklearn.feature_extraction.text import CountVectorizer, TfidfVectorizer, TfidfTransformer
 from sklearn.metrics import accuracy_score
 from sklearn.model_selection import train_test_split
 from sklearn.pipeline import Pipeline
 from sklearn.svm import LinearSVC
 from spacy.en import English
 
-parser = English()
-punctuations = string.punctuation
+from helper_functions import LINKS_RE, RETWEET_RE, ONLY_WORDS_RE
 
 
 class StemmedCountVectorizer(CountVectorizer):
@@ -70,16 +69,6 @@ def my_tokenizer(sentence):
     return [token for token in tokens if frequency[token] > 1]
 
 
-# Create spacy tokenizer that parses a sentence and generates tokens
-# these can also be replaced by word vectors
-
-def spacy_tokenizer(sentence):
-    tokens = parser(sentence)
-    tokens = [tok.lemma_.lower().strip() if tok.lemma_ != "-PRON-" else tok.lower_ for tok in tokens]
-    tokens = [tok for tok in tokens if (tok not in stopwords and tok not in punctuations)]
-    return tokens
-
-
 # Basic utility function to clean the text
 def clean_text(text):
     return text.strip().lower()
@@ -100,8 +89,38 @@ class predictors(TransformerMixin):
 if __name__ == '__main__':
     tweets = pd.read_csv('data/tweets.txt', delimiter='\n', header=None, quoting=csv.QUOTE_NONE)
     emoji = pd.read_csv('data/emoji.txt', delimiter='\n', header=None, quoting=csv.QUOTE_NONE)
+    from nltk.corpus import stopwords
 
-    X_train, X_test, y_train, y_test = train_test_split(tweets, emoji, test_size=0.2, shuffle=False)
+    parser = English()
+    punctuations = string.punctuation
+
+    # Cleaning the texts
+    corpus = []
+    stopword_set = set(stopwords.words('english'))
+    tweets_gen = (tw for tw in list(tweets[0]))
+
+
+    # Create spacy tokenizer that parses a sentence and generates tokens
+    # these can also be replaced by word vectors
+    def spacy_tokenizer(sentence):
+        tokens = parser(sentence)
+        tokens = [tok.lemma_.lower().strip() if tok.lemma_ != "-PRON-" else tok.lower_ for tok in tokens]
+        tokens = [tok for tok in tokens if (tok not in stopword_set and tok not in punctuations)]
+        return tokens
+
+
+    for tweet in tweets_gen:
+        tweet = LINKS_RE.sub(' ', tweet)
+        tweet = RETWEET_RE.sub(' ', tweet)
+        tweet = ONLY_WORDS_RE.sub(' ', tweet)
+        tweet = spacy_tokenizer(tweet)
+        tweet = ' '.join(tweet)
+        corpus.append(tweet)
+
+    le = preprocessing.LabelEncoder()
+    y = le.fit_transform(emoji)
+
+    X_train, X_test, y_train, y_test = train_test_split(corpus, y, test_size=0.2, shuffle=False)
 
     # count_vect = CountVectorizer()
     # X_train_counts = count_vect.fit_transform(inputs_train)
@@ -151,6 +170,8 @@ if __name__ == '__main__':
         [
             # ('vect', StemmedCountVectorizer(stop_words='english')),
             ('vect', CountVectorizer()),
+            # ('tfidf', TfidfVectorizer(sublinear_tf=True, max_df=0.5,
+            #                           stop_words='english')),
             ('tfidf', TfidfTransformer()),
             # ('mnb', MultinomialNB(fit_prior=False)),
             # ('classifier', RandomForestClassifier()),
@@ -158,7 +179,7 @@ if __name__ == '__main__':
         ]
     )
 
-    text_clf.fit(X_train.as_matrix(), y_train.as_matrix())
+    text_clf.fit(X_train, y_train)
 
     # now we can save it to a file
     joblib.dump(text_clf, 'model.pkl')
@@ -168,4 +189,6 @@ if __name__ == '__main__':
     for (sample, pred) in zip(X_test, pred_data):
         print(sample, ">>>>>", pred)
 
-    print("Accuracy:", accuracy_score(X_test, pred_data))
+    print("Accuracy:", accuracy_score(y_test, pred_data))
+
+    print(np.mean(y_test == pred_data))

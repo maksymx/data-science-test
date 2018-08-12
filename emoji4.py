@@ -11,8 +11,8 @@ import csv
 from helper_functions import LINKS_RE, RETWEET_RE, ONLY_WORDS_RE
 
 # Importing the dataset
-tweets = pd.read_csv('tweets.txt', delimiter='\n', header=None, quoting=csv.QUOTE_NONE)
-emoji = pd.read_csv('emoji.txt', delimiter='\n', header=None, quoting=csv.QUOTE_NONE)
+tweets = pd.read_csv('data/tweets.txt', delimiter='\n', header=None, quoting=csv.QUOTE_NONE)
+emoji = pd.read_csv('data/emoji.txt', delimiter='\n', header=None, quoting=csv.QUOTE_NONE)
 
 # Cleaning the texts
 corpus = []
