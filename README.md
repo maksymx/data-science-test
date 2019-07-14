@@ -3,7 +3,7 @@
 ## Overview ## 
 
 This is a take-home assignment for candidates for the data scientist position at Emogi. 
-We except candidate to demonstrate the following abilties through this assignment:
+We except candidate to demonstrate the following abilities through this assignment:
 
 1) An ability to write well-organized and easy-to-read code in general programming 
 2) An ability to design an empirical research experiment
