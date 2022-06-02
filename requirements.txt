@@ -13,7 +13,7 @@ entrypoints==0.2.3
 enum34==1.1.6
 ftfy==4.4.3
 h5py==2.7.1
-html5lib==0.9999999
+html5lib==0.99999999
 idna==2.6
 imutils==0.4.3
 ipykernel==4.6.1
